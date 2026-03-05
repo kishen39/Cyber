@@ -1,0 +1,1375 @@
+Pci hipaa guide · HTML
+Copy
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PCI DSS & HIPAA on AWS — Senior Engineer's Field Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@400;600;700;800&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070b14;
+    --surface: #0d1525;
+    --surface2: #111d33;
+    --border: #1e3050;
+    --cyan: #00d4e8;
+    --cyan-dim: #00a8b833;
+    --amber: #f5a623;
+    --amber-dim: #f5a62322;
+    --green: #00e67a;
+    --green-dim: #00e67a1a;
+    --red: #ff4d6d;
+    --text: #c8d8f0;
+    --text-dim: #5a7090;
+    --text-bright: #e8f4ff;
+    --heading: #ffffff;
+    --mono: 'IBM Plex Mono', monospace;
+    --display: 'Syne', sans-serif;
+    --body: 'Lora', serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.8;
+    overflow-x: hidden;
+  }
+
+  /* ─── NOISE OVERLAY ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.4;
+  }
+
+  /* ─── HEADER ─── */
+  .hero {
+    position: relative;
+    padding: 100px 60px 80px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+    background: linear-gradient(135deg, #070b14 0%, #0a1428 60%, #07101f 100%);
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -200px; right: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, #00d4e820 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -150px; left: -100px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, #f5a62315 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--cyan);
+    background: var(--cyan-dim);
+    border: 1px solid #00d4e840;
+    padding: 6px 14px;
+    border-radius: 2px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    animation: fadeSlideDown 0.6s ease both;
+  }
+
+  .hero-badge::before {
+    content: '●';
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .hero h1 {
+    font-family: var(--display);
+    font-size: clamp(36px, 6vw, 72px);
+    font-weight: 800;
+    color: var(--heading);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    max-width: 800px;
+    margin-bottom: 20px;
+    animation: fadeSlideDown 0.7s 0.1s ease both;
+  }
+
+  .hero h1 span {
+    background: linear-gradient(90deg, var(--cyan), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    font-family: var(--body);
+    font-size: 17px;
+    color: var(--text-dim);
+    max-width: 620px;
+    font-style: italic;
+    animation: fadeSlideDown 0.7s 0.2s ease both;
+  }
+
+  .hero-meta {
+    display: flex;
+    gap: 32px;
+    margin-top: 40px;
+    animation: fadeSlideDown 0.7s 0.3s ease both;
+  }
+
+  .hero-meta-item {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hero-meta-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .hero-meta-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--amber);
+  }
+
+  @keyframes fadeSlideDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── LAYOUT ─── */
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1400px;
+    margin: 0 auto;
+    gap: 0;
+  }
+
+  /* ─── SIDEBAR ─── */
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    padding: 40px 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .sidebar-section-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    padding: 0 24px;
+    margin-bottom: 8px;
+    margin-top: 24px;
+  }
+
+  .sidebar a {
+    display: block;
+    padding: 9px 24px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sidebar a:hover {
+    color: var(--cyan);
+    border-left-color: var(--cyan);
+    background: var(--cyan-dim);
+    padding-left: 28px;
+  }
+
+  .sidebar a.active {
+    color: var(--cyan);
+    border-left-color: var(--cyan);
+  }
+
+  /* ─── CONTENT ─── */
+  .content {
+    padding: 60px 80px;
+    max-width: 900px;
+  }
+
+  /* ─── SECTIONS ─── */
+  .section {
+    margin-bottom: 80px;
+    animation: fadeIn 0.5s ease both;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-tag::after {
+    content: '';
+    flex: 1;
+    max-width: 60px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.4;
+  }
+
+  .tag-pci { color: var(--cyan); }
+  .tag-hipaa { color: var(--amber); }
+  .tag-arch { color: var(--green); }
+  .tag-shared { color: #a78bfa; }
+  .tag-interview { color: var(--red); }
+
+  h2 {
+    font-family: var(--display);
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--heading);
+    line-height: 1.15;
+    margin-bottom: 24px;
+    letter-spacing: -0.02em;
+  }
+
+  h3 {
+    font-family: var(--display);
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin: 40px 0 14px;
+    padding-left: 14px;
+    border-left: 3px solid var(--cyan);
+    letter-spacing: -0.01em;
+  }
+
+  h3.amber { border-left-color: var(--amber); }
+  h3.green { border-left-color: var(--green); }
+  h3.purple { border-left-color: #a78bfa; }
+  h3.red { border-left-color: var(--red); }
+
+  p {
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+
+  strong {
+    color: var(--text-bright);
+    font-weight: 600;
+  }
+
+  em { color: var(--text-dim); }
+
+  /* ─── CALLOUT BOXES ─── */
+  .callout {
+    border-left: 3px solid;
+    padding: 16px 20px;
+    border-radius: 0 6px 6px 0;
+    margin: 24px 0;
+    font-size: 15px;
+  }
+
+  .callout-cyan {
+    border-color: var(--cyan);
+    background: var(--cyan-dim);
+  }
+
+  .callout-amber {
+    border-color: var(--amber);
+    background: var(--amber-dim);
+  }
+
+  .callout-green {
+    border-color: var(--green);
+    background: var(--green-dim);
+  }
+
+  .callout-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  .callout-cyan .callout-label { color: var(--cyan); }
+  .callout-amber .callout-label { color: var(--amber); }
+  .callout-green .callout-label { color: var(--green); }
+
+  /* ─── TABLES ─── */
+  .table-wrap {
+    overflow-x: auto;
+    margin: 24px 0;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  thead {
+    background: var(--surface2);
+  }
+
+  thead th {
+    padding: 12px 16px;
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  td {
+    padding: 11px 16px;
+    vertical-align: top;
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  td:first-child {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--cyan);
+    white-space: nowrap;
+  }
+
+  .amber-table td:first-child { color: var(--amber); }
+  .green-table td:first-child { color: var(--green); }
+  .purple-table td:first-child { color: #a78bfa; }
+
+  /* ─── CODE / MONOSPACE ─── */
+  code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 2px 7px;
+    border-radius: 3px;
+    color: var(--green);
+  }
+
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px 24px;
+    margin: 20px 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    color: #8bb4d8;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .code-block .comment { color: #3d5a7a; }
+  .code-block .key { color: var(--cyan); }
+  .code-block .val { color: var(--amber); }
+  .code-block .str { color: var(--green); }
+  .code-block .special { color: var(--red); }
+
+  /* ─── REQUIREMENT CARDS ─── */
+  .req-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    margin: 24px 0;
+  }
+
+  .req-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    transition: border-color 0.2s, transform 0.2s;
+    cursor: default;
+  }
+
+  .req-card:hover {
+    border-color: var(--cyan);
+    transform: translateY(-2px);
+  }
+
+  .req-number {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--cyan);
+    margin-bottom: 6px;
+    letter-spacing: 0.1em;
+  }
+
+  .req-title {
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 6px;
+  }
+
+  .req-aws {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  /* ─── COMPARE BLOCK ─── */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin: 28px 0;
+  }
+
+  .compare-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+  }
+
+  .compare-card.pci { border-top: 3px solid var(--cyan); }
+  .compare-card.hipaa { border-top: 3px solid var(--amber); }
+
+  .compare-card h4 {
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 800;
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+
+  .compare-card.pci h4 { color: var(--cyan); }
+  .compare-card.hipaa h4 { color: var(--amber); }
+
+  .compare-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .compare-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+  .compare-dim {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+  }
+
+  .compare-val {
+    font-size: 14px;
+    color: var(--text-bright);
+    font-family: var(--body);
+    line-height: 1.5;
+  }
+
+  /* ─── DIVIDER ─── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 60px 0;
+  }
+
+  /* ─── TERM PILLS ─── */
+  .term-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 16px 0;
+  }
+
+  .term-pill {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 2px;
+    border: 1px solid;
+    cursor: default;
+    transition: all 0.15s;
+  }
+
+  .term-pill:hover { transform: translateY(-1px); filter: brightness(1.2); }
+  .term-pill.cyan { color: var(--cyan); border-color: var(--cyan); background: var(--cyan-dim); }
+  .term-pill.amber { color: var(--amber); border-color: var(--amber); background: var(--amber-dim); }
+  .term-pill.green { color: var(--green); border-color: var(--green); background: var(--green-dim); }
+
+  /* ─── CLOSING ─── */
+  .closing {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 40px;
+    margin-top: 60px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .closing::before {
+    content: '"';
+    position: absolute;
+    top: -10px; left: 20px;
+    font-size: 180px;
+    color: var(--cyan);
+    opacity: 0.05;
+    font-family: Georgia, serif;
+    line-height: 1;
+  }
+
+  .closing p {
+    font-size: 17px;
+    font-style: italic;
+    color: var(--text-bright);
+    line-height: 1.9;
+    position: relative;
+  }
+
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .content { padding: 40px 24px; }
+    .hero { padding: 60px 24px; }
+    .compare-grid { grid-template-columns: 1fr; }
+    .req-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ─── TOP PROGRESS BAR ─── */
+  #progress {
+    position: fixed;
+    top: 0; left: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--cyan), var(--green));
+    z-index: 1000;
+    width: 0%;
+    transition: width 0.1s;
+  }
+
+  /* ─── BACK TO TOP ─── */
+  #btt {
+    position: fixed;
+    bottom: 32px; right: 32px;
+    width: 44px; height: 44px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s;
+    font-family: var(--mono);
+    font-size: 18px;
+    color: var(--cyan);
+    text-decoration: none;
+    z-index: 100;
+  }
+
+  #btt:hover { border-color: var(--cyan); background: var(--cyan-dim); }
+  #btt.visible { opacity: 1; }
+
+  .never-store {
+    background: #ff4d6d1a;
+    border: 1px solid #ff4d6d40;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--red);
+  }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<header class="hero">
+  <div class="hero-badge">Sr. Cloud Security Engineer · 12+ Years Field Experience</div>
+  <h1>PCI DSS & HIPAA<br>on <span>AWS</span></h1>
+  <p class="hero-sub">The architect's field guide — from CDE scoping to ePHI boundaries, with every interview term you need to own the room.</p>
+  <div class="hero-meta">
+    <div class="hero-meta-item">
+      <span class="hero-meta-label">Standard</span>
+      <span class="hero-meta-value">PCI DSS v4.0</span>
+    </div>
+    <div class="hero-meta-item">
+      <span class="hero-meta-label">Regulation</span>
+      <span class="hero-meta-value">HIPAA / HITECH</span>
+    </div>
+    <div class="hero-meta-item">
+      <span class="hero-meta-label">Platform</span>
+      <span class="hero-meta-value">AWS Multi-Account</span>
+    </div>
+    <div class="hero-meta-item">
+      <span class="hero-meta-label">Version</span>
+      <span class="hero-meta-value">2024 Field Edition</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-section-label">Overview</div>
+    <a href="#mindset">The Mindset Shift</a>
+
+    <div class="sidebar-section-label">PCI DSS</div>
+    <a href="#pci-what">What is PCI DSS?</a>
+    <a href="#pci-data">CHD vs SAD Data Types</a>
+    <a href="#pci-12">The 12 Requirements</a>
+    <a href="#pci-scope">Scoping & CDE</a>
+    <a href="#pci-tokenization">Tokenization & P2PE</a>
+    <a href="#pci-req6">Req 6: Secure Dev</a>
+
+    <div class="sidebar-section-label">HIPAA</div>
+    <a href="#hipaa-what">What is HIPAA?</a>
+    <a href="#hipaa-rules">Three HIPAA Rules</a>
+    <a href="#hipaa-safeguards">Security Safeguards</a>
+    <a href="#hipaa-risk">Risk Analysis</a>
+    <a href="#hipaa-baa">BAA with AWS</a>
+    <a href="#hipaa-breach">Breach Notification</a>
+
+    <div class="sidebar-section-label">Differentiation</div>
+    <a href="#diff">PCI vs HIPAA</a>
+
+    <div class="sidebar-section-label">AWS Architecture</div>
+    <a href="#pci-arch">PCI Architecture</a>
+    <a href="#hipaa-arch">HIPAA Architecture</a>
+    <a href="#shared">Shared Services</a>
+
+    <div class="sidebar-section-label">Interview Prep</div>
+    <a href="#interview-pci">PCI Terms</a>
+    <a href="#interview-hipaa">HIPAA Terms</a>
+    <a href="#interview-aws">AWS Terms</a>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="content">
+
+    <!-- ═══ MINDSET ═══ -->
+    <section class="section" id="mindset">
+      <div class="section-tag tag-shared">Foundation</div>
+      <h2>The Mindset Shift</h2>
+
+      <p>One of the first things I tell junior engineers is this: <strong>compliance is a floor, not a ceiling.</strong> You can be fully PCI DSS compliant and still get breached. You can pass a HIPAA audit and still expose patient data. Compliance frameworks define the <em>minimum expected controls</em> — good security architecture defines what actually protects the business.</p>
+
+      <div class="callout callout-cyan">
+        <div class="callout-label">Core Principle</div>
+        Both frameworks converge on the same fundamentals: <strong>encrypt everything, log everything, control access tightly, and be able to prove it.</strong> Get that right and you'll be dangerous in any compliance conversation.
+      </div>
+
+      <p>The goal of this guide is to understand <em>why</em> each control exists, <em>how</em> it maps to real AWS architecture, and <em>how to talk about it fluently</em> in an interview or audit.</p>
+    </section>
+
+    <!-- ═══ PCI WHAT ═══ -->
+    <section class="section" id="pci-what">
+      <div class="section-tag tag-pci">PCI DSS</div>
+      <h2>What Is PCI DSS?</h2>
+
+      <p><strong>PCI DSS (Payment Card Industry Data Security Standard)</strong> is an industry-driven security standard — not a law — created and maintained by the <strong>PCI Security Standards Council (PCI SSC)</strong>. It was founded by Visa, Mastercard, American Express, Discover, and JCB. Current version: <code>PCI DSS v4.0</code> (v3.2.1 retired March 2024).</p>
+
+      <p>The standard applies to any organization that <strong>stores, processes, or transmits cardholder data (CHD)</strong> or <strong>sensitive authentication data (SAD)</strong>.</p>
+
+      <h3 id="pci-data">CHD vs SAD — The Critical Distinction</h3>
+      <p>This is a top interview trap. Know exactly what can and cannot be stored post-authorization:</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Data Element</th><th>Category</th><th>Examples</th><th>Post-Auth Storage</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Primary Account Number (PAN)</td><td>CHD</td><td>16-digit card number</td><td>Yes — must be rendered unreadable</td></tr>
+            <tr><td>Cardholder Name</td><td>CHD</td><td>Name on card</td><td>Yes</td></tr>
+            <tr><td>Service Code</td><td>CHD</td><td>3-digit on mag stripe</td><td>Yes</td></tr>
+            <tr><td>Expiration Date</td><td>CHD</td><td>MM/YY</td><td>Yes</td></tr>
+            <tr><td>Full Mag Stripe Data</td><td>SAD</td><td>Track 1 / Track 2</td><td><span class="never-store">NEVER</span></td></tr>
+            <tr><td>CAV2 / CVV2 / CVC2</td><td>SAD</td><td>3–4 digit security code</td><td><span class="never-store">NEVER</span></td></tr>
+            <tr><td>PIN / PIN Block</td><td>SAD</td><td>ATM PIN</td><td><span class="never-store">NEVER</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-amber">
+        <div class="callout-label">Interview Answer</div>
+        <em>"SAD — Sensitive Authentication Data — can never be stored after authorization completes, regardless of encryption. The mag stripe, CVV, and PIN are absolute restrictions in PCI DSS. CHD elements like PAN can be stored but must be rendered unreadable via tokenization, truncation, or encryption."</em>
+      </div>
+    </section>
+
+    <!-- ═══ 12 REQUIREMENTS ═══ -->
+    <section class="section" id="pci-12">
+      <div class="section-tag tag-pci">PCI DSS</div>
+      <h2>The 12 PCI DSS Requirements</h2>
+      <p>Every interviewer will ask you to walk through these. Know the summary and the AWS control for each.</p>
+
+      <div class="req-grid">
+        <div class="req-card">
+          <div class="req-number">REQ 01</div>
+          <div class="req-title">Network Security Controls</div>
+          <div class="req-aws">Security Groups, NACLs, Network Firewall, Transit Gateway</div>
+        </div>
+        <div class="req-card">
+          <div class="req-number">REQ 02</div>
+          <div class="req-title">Secure Configurations</div>
+          <div class="req-aws">AWS Config, Systems Manager, hardened AMIs, Patch Manager</div>
+        </div>
+        <div class="req-card">
+          <div class="req-number">REQ 03</div>
+          <div class="req-title">Protect Stored Account Data</div>
+          <div class="req-aws">KMS CMKs, tokenization, RDS/DynamoDB/S3 encryption at rest</div>
+        </div>
+        <div class="req-card">
+          <div class="req-number">REQ 04</div>
+          <div class="req-title">Strong Cryptography in Transit</div>
+          <div class="req-aws">TLS 1.2+ minimum, ACM certificates, no weak ciphers on ALB</div>
+        </div>
+        <div class="req-card">
+          <div class="req-number">REQ 05</div>
+          <div class="req-title">Protect Against Malware</div>
+          <div class="req-aws">GuardDuty, Inspector, AWS Marketplace EDR agents</div>
+        </div>
+        <div class="req-card">
+          <div class="req-number">REQ 06</div>
+          <div class="req-title">Secure Systems & Software</div>
+          <div class="req-aws">CodePipeline, SAST/DAST, SSM Patch Manager, WAF for Req 6.4</div>
+        </div>
+        <div class="req-card">
+          <div class="req-number">REQ 07</div>
+          <div class="req-title">Restrict Access by Business Need</div>
+          <div class="req-aws">IAM Policies, SCPs, ABAC (tag-based access control)</div>
+        </div>
+        <div class="req-card">
+          <div class="req-number">REQ 08</div>
+          <div class="req-title">Identify Users & Authenticate</div>
+          <div class="req-aws">IAM Identity Center, MFA, no shared credentials, no root usage</div>
+        </div>
+        <div class="req-card">
+          <div class="req-number">REQ 09</div>
+          <div class="req-title">Restrict Physical Access</div>
+          <div class="req-aws">AWS data center compliance (inherited) + workstation controls</div>
+        </div>
+        <div class="req-card">
+          <div class="req-number">REQ 10</div>
+          <div class="req-title">Log & Monitor All Access</div>
+          <div class="req-aws">CloudTrail Org Trail, VPC Flow Logs, CloudWatch, SIEM forwarding</div>
+        </div>
+        <div class="req-card">
+          <div class="req-number">REQ 11</div>
+          <div class="req-title">Test Security Regularly</div>
+          <div class="req-aws">Inspector v2, ASV scans (quarterly), annual pen testing</div>
+        </div>
+        <div class="req-card">
+          <div class="req-number">REQ 12</div>
+          <div class="req-title">Policies & Programs</div>
+          <div class="req-aws">Written policies, risk assessments, security awareness training</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ SCOPING ═══ -->
+    <section class="section" id="pci-scope">
+      <div class="section-tag tag-pci">PCI DSS</div>
+      <h2>Scoping & the CDE</h2>
+
+      <p><strong>Scoping</strong> is the process of identifying every system component that must comply with PCI DSS. In enterprise environments, <strong>scope reduction is everything.</strong> Every system in scope must meet all 12 requirements.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Scope Category</th><th>Definition</th></tr></thead>
+          <tbody>
+            <tr><td>In-scope (CDE)</td><td>All systems that store, process, or transmit CHD/SAD</td></tr>
+            <tr><td>Connected-to</td><td>Systems that can reach the CDE — also in scope unless properly isolated</td></tr>
+            <tr><td>Out-of-scope</td><td>Systems with no path to the CDE and cannot impact its security</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-amber">
+        <div class="callout-label">Critical Point</div>
+        If your HR system can talk to your payment processor, your HR system is now in PCI scope. <strong>Network segmentation is foundational</strong> — not just a Req 1 checkbox.
+      </div>
+
+      <h3 id="pci-tokenization">Tokenization — The King of Scope Reduction</h3>
+
+      <p><strong>Tokenization</strong> replaces the PAN with a <strong>surrogate value (token)</strong> that has no mathematical relationship to the original PAN. Unlike encryption (reversible with the key), a token is meaningless without access to the <strong>token vault</strong>.</p>
+
+      <p>In practice: the customer enters their card number once, the payment service exchanges it for a token with a provider (Stripe, Braintree, or an HSM-backed vault), and every downstream system sees only the token. Your order management, CRM, and analytics systems never touch PAN — they're entirely out of PCI scope.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Mechanism</th><th>Description</th><th>Scope Impact</th></tr></thead>
+          <tbody>
+            <tr><td>Tokenization</td><td>Non-reversible surrogate; requires vault to map back</td><td>Removes PAN from downstream systems entirely</td></tr>
+            <tr><td>P2PE (Validated)</td><td>PCI SSC-validated; encrypted at point of interaction through to acquirer</td><td>Can dramatically reduce/eliminate merchant CDE</td></tr>
+            <tr><td>E2EE (Generic)</td><td>End-to-end encryption, not PCI-validated</td><td>Reduces scope but less credit from QSA than P2PE</td></tr>
+            <tr><td>Truncation</td><td>Store only first 6 / last 4 digits of PAN</td><td>Stored value no longer PAN — out of scope</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="pci-req6">Requirement 6: Secure Development</h3>
+
+      <p>PCI DSS v4.0 puts significantly more emphasis on application security. Know these terms precisely:</p>
+
+      <div class="term-grid">
+        <span class="term-pill cyan">SAST</span>
+        <span class="term-pill cyan">DAST</span>
+        <span class="term-pill cyan">SCA</span>
+        <span class="term-pill cyan">WAF (Req 6.4)</span>
+        <span class="term-pill cyan">OWASP Top 10</span>
+        <span class="term-pill cyan">Secure SDLC</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Term</th><th>What It Means</th><th>Tool Examples</th></tr></thead>
+          <tbody>
+            <tr><td>SAST</td><td>Static Application Security Testing — analyze source code pre-runtime</td><td>Checkmarx, Semgrep, CodeGuru</td></tr>
+            <tr><td>DAST</td><td>Dynamic Application Security Testing — test running applications</td><td>OWASP ZAP, Burp Suite</td></tr>
+            <tr><td>SCA</td><td>Software Composition Analysis — scan open-source dependencies for CVEs</td><td>Snyk, Dependabot, Black Duck</td></tr>
+            <tr><td>WAF (Req 6.4)</td><td>Required for public-facing web apps — hardware, software, or cloud WAF</td><td>AWS WAF, Cloudflare WAF</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══ HIPAA WHAT ═══ -->
+    <section class="section" id="hipaa-what">
+      <div class="section-tag tag-hipaa">HIPAA</div>
+      <h2>What Is HIPAA?</h2>
+
+      <p><strong>HIPAA (Health Insurance Portability and Accountability Act of 1996)</strong> is a <strong>U.S. federal law</strong> enforced by the <strong>Department of Health and Human Services (HHS)</strong>, specifically the <strong>Office for Civil Rights (OCR)</strong>. Unlike PCI DSS, there's no certification body — you don't "pass" HIPAA. You demonstrate an ongoing, risk-based compliance posture.</p>
+
+      <div class="table-wrap amber-table">
+        <table>
+          <thead><tr><th>Entity Type</th><th>Definition</th><th>Examples</th></tr></thead>
+          <tbody>
+            <tr><td>Covered Entity (CE)</td><td>Organizations directly subject to HIPAA</td><td>Hospitals, health plans, clearinghouses</td></tr>
+            <tr><td>Business Associate (BA)</td><td>Third parties that handle PHI on behalf of CEs</td><td>AWS, EHR vendors, billing companies</td></tr>
+            <tr><td>Subcontractor</td><td>A BA's vendor who also touches PHI</td><td>AWS sub-processors — also need BAA</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="hipaa-rules" class="amber">The Three HIPAA Rules</h3>
+
+      <p><strong>1. Privacy Rule</strong> — Establishes standards for who can access and use PHI. Defines patient rights. Requires a Notice of Privacy Practices (NPP). Governs disclosures and the <strong>Minimum Necessary Standard</strong>.</p>
+
+      <p><strong>2. Security Rule</strong> — Focuses specifically on <strong>ePHI</strong> and defines three categories of safeguards (see below). Uses the terms Required and Addressable for implementation specifications.</p>
+
+      <p><strong>3. Breach Notification Rule</strong> — Requires notification when unsecured PHI is impermissibly used or disclosed. Timelines are firm and legally binding.</p>
+
+      <h3 id="hipaa-safeguards" class="amber">Security Rule Safeguards</h3>
+
+      <div class="table-wrap amber-table">
+        <table>
+          <thead><tr><th>Safeguard Type</th><th>Examples</th></tr></thead>
+          <tbody>
+            <tr><td>Administrative</td><td>Risk analysis, risk management, workforce training, access management policies, incident response, contingency planning</td></tr>
+            <tr><td>Physical</td><td>Facility access controls, workstation security, device and media controls</td></tr>
+            <tr><td>Technical</td><td>Access control (unique user IDs, auto logoff, encryption), audit controls, integrity controls, transmission security</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-amber">
+        <div class="callout-label">Critical Distinction — Required vs Addressable</div>
+        <strong>Required</strong>: Must implement, no exceptions. <strong>Addressable</strong>: Must assess and implement if reasonable and appropriate — OR document why an equivalent alternative was used. <em>Addressable does NOT mean optional.</em> This trips up engineers in every HIPAA interview.
+      </div>
+
+      <h3 id="hipaa-risk" class="amber">Risk Analysis — The #1 OCR Audit Finding</h3>
+
+      <p>The single most important HIPAA concept. <strong>45 CFR § 164.308(a)(1)</strong> requires you to:</p>
+      <ol style="padding-left: 20px; margin: 12px 0; font-family: var(--mono); font-size: 13px; color: var(--text); line-height: 2;">
+        <li>Identify the scope of ePHI across the organization</li>
+        <li>Identify reasonably anticipated threats to ePHI</li>
+        <li>Identify current vulnerabilities</li>
+        <li>Assess likelihood and impact of each threat/vulnerability combination</li>
+        <li>Determine the level of risk</li>
+        <li>Implement security measures to reduce risk to a reasonable and appropriate level</li>
+        <li><strong>Document everything</strong> — and review/update periodically</li>
+      </ol>
+
+      <p>Organizations that have been fined by OCR have most frequently cited <strong>failure to conduct a risk analysis</strong> as the root finding. It's not optional, it's not a one-time exercise, and it has to be documented.</p>
+
+      <h3 id="hipaa-baa" class="amber">Business Associate Agreement (BAA) with AWS</h3>
+
+      <p>Before you put a single byte of ePHI in AWS, you <strong>must execute a BAA with AWS</strong>. It's available through the AWS Management Console. But the BAA only covers <strong>HIPAA-eligible services</strong> — not all AWS services qualify.</p>
+
+      <div class="callout callout-amber">
+        <div class="callout-label">Interview Trap</div>
+        Having a BAA with AWS does not mean all AWS services are in scope. You must verify each service you use against the <strong>AWS HIPAA Eligible Services Reference</strong>. Using a non-eligible service for ePHI workloads violates the BAA terms.
+      </div>
+
+      <h3 id="hipaa-breach" class="amber">Breach Notification Rule & Timelines</h3>
+
+      <div class="table-wrap amber-table">
+        <table>
+          <thead><tr><th>Notification Target</th><th>Trigger</th><th>Deadline</th></tr></thead>
+          <tbody>
+            <tr><td>Affected Individuals</td><td>Any breach of unsecured PHI</td><td>Within 60 days of discovery</td></tr>
+            <tr><td>HHS (prominent)</td><td>Breach affects 500+ individuals</td><td>Within 60 days of discovery</td></tr>
+            <tr><td>HHS (annual log)</td><td>Breach affects fewer than 500</td><td>By March 1 of following year</td></tr>
+            <tr><td>Media</td><td>Breach affects 500+ in a state/jurisdiction</td><td>Simultaneous with individual notification</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-green">
+        <div class="callout-label">Safe Harbor — The Encryption Defense</div>
+        If ePHI was encrypted with FIPS-validated algorithms <em>and</em> the keys were not compromised, it qualifies as <strong>"secured PHI"</strong> — and breach notification requirements may not apply. This is the Safe Harbor provision. It's the reason why encryption isn't just a nice-to-have in HIPAA; it's a legal shield.
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══ DIFFERENTIATOR ═══ -->
+    <section class="section" id="diff">
+      <div class="section-tag tag-shared">Comparison</div>
+      <h2>PCI DSS vs HIPAA — The Key Differentiator</h2>
+
+      <p>This will come up in every senior-level interview. Here is the crisp answer followed by a full comparison:</p>
+
+      <div class="compare-grid">
+        <div class="compare-card pci">
+          <h4>PCI DSS</h4>
+          <div class="compare-row">
+            <span class="compare-dim">Type</span>
+            <span class="compare-val">Industry-created security standard</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Enforcer</span>
+            <span class="compare-val">Card brands / acquiring banks</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Approach</span>
+            <span class="compare-val">Control-prescriptive (exact requirements)</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Assessment</span>
+            <span class="compare-val">QSA audit or SAQ (self-assessment)</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Data Focus</span>
+            <span class="compare-val">PAN, SAD, CHD (payment account data)</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Admin Controls</span>
+            <span class="compare-val">Lighter weight vs technical controls</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Scope Reduction</span>
+            <span class="compare-val">Tokenization, P2PE, network segmentation</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Penalty</span>
+            <span class="compare-val">Fines from card brands, loss of merchant account</span>
+          </div>
+        </div>
+        <div class="compare-card hipaa">
+          <h4>HIPAA</h4>
+          <div class="compare-row">
+            <span class="compare-dim">Type</span>
+            <span class="compare-val">U.S. federal law</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Enforcer</span>
+            <span class="compare-val">HHS Office for Civil Rights (OCR)</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Approach</span>
+            <span class="compare-val">Risk-based and principle-driven</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Assessment</span>
+            <span class="compare-val">OCR audit / self-attestation + ongoing risk mgmt</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Data Focus</span>
+            <span class="compare-val">PHI, ePHI (health information)</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Admin Controls</span>
+            <span class="compare-val">Heavily emphasized — Risk Analysis, training, policies</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Scope Reduction</span>
+            <span class="compare-val">De-identification (Safe Harbor or Expert Determination)</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-dim">Penalty</span>
+            <span class="compare-val">Civil and criminal penalties up to $1.9M/year + prosecution</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══ PCI ARCHITECTURE ═══ -->
+    <section class="section" id="pci-arch">
+      <div class="section-tag tag-arch">Architecture</div>
+      <h2>Enterprise AWS Architecture for PCI</h2>
+
+      <h3>Multi-Account Design with AWS Organizations</h3>
+      <p>The gold standard for PCI in AWS is a <strong>multi-account, multi-OU architecture</strong> using <strong>AWS Organizations</strong> with <strong>Service Control Policies (SCPs)</strong> to enforce guardrails. This prevents <strong>PCI scope creep</strong> — the tendency for CDE connectivity to bleed across accounts.</p>
+
+      <div class="code-block"><span class="comment"># Recommended OU/Account Structure</span>
+<span class="key">Root</span>
+├── <span class="val">Security OU</span>
+│   ├── <span class="str">Security Tooling Account</span>  <span class="comment"># GuardDuty delegated admin, Security Hub, Inspector</span>
+│   └── <span class="str">Log Archive Account</span>        <span class="comment"># Immutable CloudTrail, VPC Flow Logs, WAF logs</span>
+├── <span class="val">Infrastructure OU</span>
+│   └── <span class="str">Network Account</span>            <span class="comment"># Transit Gateway, AWS Network Firewall, egress</span>
+├── <span class="val">PCI OU</span>  <span class="comment">← SCPs enforce CDE guardrails here</span>
+│   └── <span class="str">PCI Production Account</span>     <span class="comment"># CDE — payment services, token vault interface</span>
+├── <span class="val">Non-PCI OU</span>
+│   ├── <span class="str">Non-PCI Production Account</span>
+│   └── <span class="str">Shared Services Account</span>
+└── <span class="val">SDLC OU</span>
+    ├── <span class="str">Dev Account</span>
+    └── <span class="str">Staging Account</span></div>
+
+      <h3>Hub-and-Spoke with Centralized Inspection</h3>
+
+      <p>The CDE VPC uses a <strong>hub-and-spoke model</strong> via <strong>AWS Transit Gateway (TGW)</strong>. The Network Account hosts the TGW and inspection layer. TGW route tables force all spoke-to-spoke traffic through the inspection VPC — this is called <strong>centralized inspection architecture</strong>.</p>
+
+      <p>Within the CDE VPC, enforce a <strong>three-tier subnet model</strong>:</p>
+
+      <div class="table-wrap green-table">
+        <table>
+          <thead><tr><th>Subnet Tier</th><th>Contains</th><th>Access Rule</th></tr></thead>
+          <tbody>
+            <tr><td>Public Subnet</td><td>ALB / NLB only</td><td>Internet → Load Balancer only. No EC2 with PAN access.</td></tr>
+            <tr><td>Private App Subnet</td><td>Application tier (EC2, ECS, Lambda)</td><td>Can reach data subnet. Cannot reach internet directly.</td></tr>
+            <tr><td>Restricted Data Subnet</td><td>RDS, DynamoDB, Secrets Manager endpoints</td><td>Only inbound from App Subnet on specific ports.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-cyan">
+        <div class="callout-label">Interview: Security Groups vs NACLs</div>
+        <strong>Security Groups are stateful</strong> — return traffic is automatically allowed. <strong>NACLs are stateless</strong> — you must explicitly allow both inbound AND outbound. NACLs operate at the subnet level; Security Groups at the instance level. Both are required — NACLs as defense-in-depth, Security Groups as primary micro-segmentation.
+      </div>
+
+      <h3>Encryption Architecture</h3>
+
+      <div class="table-wrap green-table">
+        <table>
+          <thead><tr><th>Layer</th><th>Control</th><th>Details</th></tr></thead>
+          <tbody>
+            <tr><td>Data in Transit</td><td>TLS 1.2+ (1.3 preferred)</td><td>ACM for ALB/CloudFront certs. ELBSecurityPolicy-TLS13-1-2-2021-06. AWS Private CA for internal service-to-service.</td></tr>
+            <tr><td>Data at Rest</td><td>KMS CMKs (Customer Managed Keys)</td><td>Full control and auditability vs. AWS-managed keys. Key rotation enabled. Least-privilege key policies.</td></tr>
+            <tr><td>HSM-grade</td><td>AWS CloudHSM</td><td>FIPS 140-2 Level 3. Required for PIN block encryption in ATM networks.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Logging Architecture — Req 10</h3>
+
+      <p>Many organizations fail audits not because logs don't exist, but because they're not centralized, immutable, or correlated.</p>
+
+      <div class="table-wrap green-table">
+        <table>
+          <thead><tr><th>Log Source</th><th>Destination</th><th>Key Config</th></tr></thead>
+          <tbody>
+            <tr><td>CloudTrail Org Trail</td><td>Log Archive S3</td><td>Enable log file validation (SHA-256). Org-wide coverage from single trail.</td></tr>
+            <tr><td>VPC Flow Logs</td><td>S3 or CloudWatch Logs</td><td>All traffic metadata — src/dst IP, port, protocol, accept/reject.</td></tr>
+            <tr><td>WAF Logs</td><td>S3 via Logpush or AWS WAF logging</td><td>Required PCI evidence for Req 10.</td></tr>
+            <tr><td>Application Logs</td><td>CloudWatch → S3</td><td>CloudWatch Agent or sidecar to centralized log bucket.</td></tr>
+            <tr><td>S3 Object Lock</td><td>Log Archive bucket</td><td>WORM in Compliance mode. 12-month PCI retention (3 months immediately available).</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══ HIPAA ARCHITECTURE ═══ -->
+    <section class="section" id="hipaa-arch">
+      <div class="section-tag tag-hipaa">Architecture</div>
+      <h2>Enterprise AWS Architecture for HIPAA</h2>
+
+      <p>The HIPAA account structure mirrors PCI but the boundary is defined by <strong>ePHI data flows</strong> rather than card data flows. Key differences are in access control depth, the administrative controls requirement, and the breach response workflow.</p>
+
+      <h3 class="amber">Access Control: Least Privilege in Practice</h3>
+
+      <p>HIPAA's Technical Safeguard for <strong>Access Control (45 CFR §164.312(a)(1))</strong> requires unique user identification, emergency access procedures, automatic logoff, and encryption/decryption controls.</p>
+
+      <div class="table-wrap amber-table">
+        <table>
+          <thead><tr><th>Control</th><th>AWS Implementation</th></tr></thead>
+          <tbody>
+            <tr><td>Unique User IDs</td><td>IAM Identity Center federated with IdP (Okta, Azure AD). No shared accounts.</td></tr>
+            <tr><td>No long-lived credentials</td><td>IAM Instance Roles and Execution Roles for workloads. No access keys on EC2.</td></tr>
+            <tr><td>No open SSH/RDP</td><td>AWS Systems Manager Session Manager — agent-based, no open port 22, sessions logged to CloudWatch + S3.</td></tr>
+            <tr><td>Emergency access (break-glass)</td><td>Dedicated break-glass IAM role with CloudWatch alarm on every use, requiring out-of-band authorization.</td></tr>
+            <tr><td>ABAC (Tag-based)</td><td>IAM policies granting access based on tags (e.g., data-classification: ePHI). Scales better than RBAC at enterprise.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="amber">HIPAA Breach Response in AWS</h3>
+
+      <div class="table-wrap amber-table">
+        <table>
+          <thead><tr><th>Phase</th><th>AWS Tool</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td>Detection</td><td>GuardDuty, Macie</td><td>GuardDuty flags unauthorized access. Macie discovers ePHI in unexpected S3 locations.</td></tr>
+            <tr><td>Investigation</td><td>CloudTrail + Flow Logs + SIEM</td><td>Build forensic timeline. Document discovery timestamp — 60-day clock starts here.</td></tr>
+            <tr><td>Containment</td><td>VPC Quarantine SG</td><td>Dedicated quarantine Security Group with no inbound/outbound. Isolate compromised EC2 without terminating for forensics.</td></tr>
+            <tr><td>Determination</td><td>KMS audit logs</td><td>Confirm whether encryption keys were compromised. If not → Safe Harbor may apply.</td></tr>
+            <tr><td>Notification</td><td>Incident ticketing</td><td>60-day window to notify affected individuals and HHS (if 500+).</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="amber">De-identification of PHI</h3>
+
+      <p>De-identified data can leave the HIPAA boundary without restriction:</p>
+
+      <div class="table-wrap amber-table">
+        <table>
+          <thead><tr><th>Method</th><th>How It Works</th></tr></thead>
+          <tbody>
+            <tr><td>Safe Harbor (18 Identifiers)</td><td>Remove all 18 identifiers specified in the Privacy Rule: name, dates more specific than year, geographic data smaller than state, phone, email, SSN, MRN, and 11 more.</td></tr>
+            <tr><td>Expert Determination</td><td>A qualified statistician certifies that re-identification risk is very low. More flexible but requires documented expert methodology.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-amber">
+        <div class="callout-label">AWS Tool for De-identification</div>
+        Use <strong>Amazon Comprehend Medical</strong> to detect PHI in unstructured text for automated de-identification pipelines.
+      </div>
+    </section>
+
+    <!-- ═══ SHARED ═══ -->
+    <section class="section" id="shared">
+      <div class="section-tag tag-shared">Both Frameworks</div>
+      <h2>Shared AWS Services That Apply to Both</h2>
+
+      <h3 class="purple">AWS Artifact</h3>
+      <p>Self-service portal for AWS compliance documentation. For both PCI and HIPAA, pull: <strong>PCI DSS AOC</strong> (AWS's own QSA assessment), <strong>PCI Responsibility Summary</strong> (maps each requirement to AWS vs. customer responsibilities), <strong>SOC 1/2/3 Reports</strong>, and the <strong>HIPAA Whitepaper</strong>.</p>
+
+      <div class="callout callout-cyan">
+        <div class="callout-label">Critical Interview Point</div>
+        AWS's AOC covers AWS's infrastructure, not your workloads. <strong>The shared responsibility model</strong> means you are responsible for your application's compliance. AWS's AOC is evidence that the platform is compliant — it's not a pass for your configuration.
+      </div>
+
+      <h3 class="purple">AWS Config + Conformance Packs</h3>
+      <p><strong>AWS Config</strong> provides continuous compliance assessment. Pre-built <strong>Conformance Packs</strong> map Config rules to PCI DSS and HIPAA: <code>Operational-Best-Practices-for-PCI-DSS</code> and <code>Operational-Best-Practices-for-HIPAA-Security</code>. Pair with <strong>auto-remediation via SSM Automation documents</strong> to fix drift automatically (e.g., auto-enable S3 SSE if a bucket is created without it).</p>
+
+      <h3 class="purple">GuardDuty + Security Hub + Macie</h3>
+      <div class="table-wrap purple-table">
+        <table style="--td-color: #a78bfa;">
+          <thead><tr><th>Service</th><th>Purpose</th><th>Relevance</th></tr></thead>
+          <tbody>
+            <tr><td style="color:#a78bfa">GuardDuty</td><td>ML-based threat detection across CloudTrail, DNS, VPC Flow Logs, S3, EKS, RDS</td><td>Both PCI Req 10 and HIPAA Technical Safeguards</td></tr>
+            <tr><td style="color:#a78bfa">Security Hub</td><td>Aggregated compliance findings — PCI DSS v3.2.1 and CIS standards built in</td><td>Both — unified compliance dashboard</td></tr>
+            <tr><td style="color:#a78bfa">Macie</td><td>ML-based sensitive data discovery in S3 — detects PAN and ePHI in unexpected locations</td><td>Both — data discovery and breach detection</td></tr>
+            <tr><td style="color:#a78bfa">Inspector v2</td><td>Continuous vulnerability assessment for EC2, Lambda, ECR container images</td><td>PCI Req 11 / HIPAA risk management</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══ INTERVIEW PCI ═══ -->
+    <section class="section" id="interview-pci">
+      <div class="section-tag tag-interview">Interview Prep</div>
+      <h2>PCI DSS Terms You Must Own</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+          <tbody>
+            <tr><td>CDE</td><td>Cardholder Data Environment — all systems that store, process, or transmit CHD/SAD</td></tr>
+            <tr><td>PAN</td><td>Primary Account Number — the 16-digit card number; most sensitive CHD element</td></tr>
+            <tr><td>SAD</td><td>Sensitive Authentication Data — CVV, full mag stripe, PIN. Can NEVER be stored post-auth</td></tr>
+            <tr><td>CHD</td><td>Cardholder Data — PAN, name, service code, expiry. Can be stored if protected</td></tr>
+            <tr><td>QSA</td><td>Qualified Security Assessor — PCI SSC-certified company performing Level 1 merchant audits</td></tr>
+            <tr><td>ISA</td><td>Internal Security Assessor — trained internal employee conducting internal assessments</td></tr>
+            <tr><td>SAQ</td><td>Self-Assessment Questionnaire — different types (A, A-EP, B, C, D, P2PE) based on card data handling method</td></tr>
+            <tr><td>ROC</td><td>Report on Compliance — formal QSA-produced assessment report for Level 1 merchants</td></tr>
+            <tr><td>AOC</td><td>Attestation of Compliance — summary document signed by QSA + merchant confirming PCI DSS compliance</td></tr>
+            <tr><td>ASV</td><td>Approved Scanning Vendor — PCI SSC-approved vendor for external vulnerability scans (Req 11.3, quarterly)</td></tr>
+            <tr><td>Tokenization</td><td>Replacing PAN with a non-reversible surrogate value to reduce scope</td></tr>
+            <tr><td>P2PE</td><td>Point-to-Point Encryption — PCI SSC-validated; encrypts at point of interaction through to acquirer</td></tr>
+            <tr><td>HSM</td><td>Hardware Security Module — tamper-resistant hardware for key management; FIPS 140-2 Level 3</td></tr>
+            <tr><td>Compensating Control</td><td>Alternative when a requirement cannot be met — must provide equivalent protection, documented in ROC</td></tr>
+            <tr><td>Network Segmentation</td><td>Isolating CDE from non-CDE — not required but critical for scope reduction</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══ INTERVIEW HIPAA ═══ -->
+    <section class="section" id="interview-hipaa">
+      <div class="section-tag tag-interview">Interview Prep</div>
+      <h2>HIPAA Terms You Must Own</h2>
+
+      <div class="table-wrap amber-table">
+        <table>
+          <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+          <tbody>
+            <tr><td>PHI</td><td>Protected Health Information — any individually identifiable health information in any medium</td></tr>
+            <tr><td>ePHI</td><td>Electronic PHI — PHI stored or transmitted electronically; governed by Security Rule</td></tr>
+            <tr><td>CE</td><td>Covered Entity — healthcare provider, health plan, or clearinghouse subject to HIPAA</td></tr>
+            <tr><td>BA</td><td>Business Associate — third party creating, receiving, maintaining, or transmitting PHI on behalf of a CE</td></tr>
+            <tr><td>BAA</td><td>Business Associate Agreement — required contract establishing HIPAA compliance obligations between CE and BA</td></tr>
+            <tr><td>OCR</td><td>Office for Civil Rights — HHS division that enforces HIPAA</td></tr>
+            <tr><td>HITECH Act</td><td>2009 law strengthening HIPAA, extending BA obligations directly, increasing penalties to $1.9M/year</td></tr>
+            <tr><td>Minimum Necessary</td><td>Standard requiring only the minimum PHI necessary to accomplish the purpose be used or disclosed</td></tr>
+            <tr><td>Risk Analysis</td><td>Required assessment of threats, vulnerabilities, likelihood and impact to ePHI — #1 OCR audit finding</td></tr>
+            <tr><td>Addressable</td><td>Must implement if reasonable and appropriate, OR document why an equivalent alternative was used. NOT optional.</td></tr>
+            <tr><td>De-identification</td><td>Removing 18 identifiers (Safe Harbor) or statistical certification (Expert Determination) to remove PHI designation</td></tr>
+            <tr><td>Safe Harbor (Breach)</td><td>Properly encrypted ePHI with non-compromised keys = "secured PHI" — breach notification may not apply</td></tr>
+            <tr><td>Breach</td><td>Impermissible use/disclosure of unsecured PHI that compromises its security or privacy</td></tr>
+            <tr><td>Unsecured PHI</td><td>PHI not rendered unusable/unreadable/indecipherable through encryption or destruction</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══ INTERVIEW AWS ═══ -->
+    <section class="section" id="interview-aws">
+      <div class="section-tag tag-interview">Interview Prep</div>
+      <h2>AWS Security Architecture Terms</h2>
+
+      <div class="table-wrap green-table">
+        <table>
+          <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+          <tbody>
+            <tr><td>AWS Organizations / SCPs</td><td>Multi-account management with policy guardrails that cannot be overridden by child accounts</td></tr>
+            <tr><td>Transit Gateway (TGW)</td><td>Hub for connecting multiple VPCs and on-prem networks; enables centralized inspection routing</td></tr>
+            <tr><td>Centralized Inspection</td><td>All inter-VPC traffic routes through a firewall in the inspection VPC via TGW route tables</td></tr>
+            <tr><td>VPC Endpoints</td><td>Private connectivity to AWS services (S3, KMS, DynamoDB) without traversing the internet</td></tr>
+            <tr><td>AWS Private CA</td><td>Private Certificate Authority for issuing internal TLS certificates (service-to-service)</td></tr>
+            <tr><td>S3 Object Lock (WORM)</td><td>Write-once read-many protection for audit logs. Compliance mode cannot be overridden even by root.</td></tr>
+            <tr><td>KMS CMK</td><td>Customer Managed Key — full control and auditability over key usage vs. AWS-managed keys</td></tr>
+            <tr><td>CloudHSM</td><td>Dedicated FIPS 140-2 Level 3 HSM for highest-assurance key management (PIN blocks, etc.)</td></tr>
+            <tr><td>Session Manager (SSM)</td><td>Agent-based shell access without open ports or bastion hosts — sessions logged to CloudWatch and S3</td></tr>
+            <tr><td>ABAC</td><td>Attribute-Based Access Control — IAM tag-based policies scaling better than RBAC in large environments</td></tr>
+            <tr><td>Config Conformance Packs</td><td>Pre-built Config rule sets mapped to compliance frameworks (PCI, HIPAA, NIST, CIS)</td></tr>
+            <tr><td>AWS Artifact</td><td>Self-service portal for AWS compliance documentation (AOC, SOC reports, BAA, responsibility summaries)</td></tr>
+            <tr><td>GuardDuty</td><td>ML-based threat detection across CloudTrail, DNS, VPC Flow Logs, S3, EKS, RDS activity</td></tr>
+            <tr><td>Macie</td><td>ML-based sensitive data discovery in S3 — identifies ePHI or PAN in unexpected locations</td></tr>
+            <tr><td>Security Hub</td><td>Aggregated compliance findings with standards: PCI DSS v3.2.1, CIS, AWS FSBP</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- CLOSING -->
+      <div class="closing">
+        <p>The engineers who stand out in compliance interviews aren't the ones who memorized requirement numbers. They're the ones who understand <em>why the control exists</em> and can describe how it maps to a real AWS component. When you explain PCI, lead with scoping and tokenization — that's where the real architecture thinking lives. When you explain HIPAA, lead with the Risk Analysis and the BAA — that's what separates a checkbox exercise from a defensible compliance program. Both frameworks converge on the same fundamentals: <strong>encrypt everything, log everything, control access tightly, and be able to prove it.</strong></p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<a href="#" id="btt" title="Back to top">↑</a>
+
+<script>
+  // Progress bar
+  window.addEventListener('scroll', () => {
+    const scrolled = window.scrollY;
+    const total = document.body.scrollHeight - window.innerHeight;
+    document.getElementById('progress').style.width = (scrolled / total * 100) + '%';
+    document.getElementById('btt').classList.toggle('visible', scrolled > 400);
+  });
+
+  // Active sidebar link
+  const sections = document.querySelectorAll('section[id]');
+  const links = document.querySelectorAll('.sidebar a');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const active = document.querySelector(`.sidebar a[href="#${entry.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { threshold: 0.3, rootMargin: '-20% 0px -60% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
